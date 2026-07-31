@@ -6,52 +6,51 @@
     <title>Placar de Tênis - W69+</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
-        .score-board { display: flex; justify-content: space-around; margin-top: 40px; }
-        .player-box { background: #222; padding: 20px; border-radius: 10px; width: 40%; }
-        .points { font-size: 4rem; font-weight: bold; color: #00ffcc; }
-        .games { font-size: 1.5rem; color: #aaa; }
-        button { padding: 15px 25px; font-size: 1.2rem; margin-top: 30px; cursor: pointer; border-radius: 8px; border: none; background: #00ffcc; font-weight: bold; }
+        .score-board { display: flex; justify-content: space-around; margin-top: 30px; }
+        .player-box { background: #222; padding: 15px; border-radius: 10px; width: 42%; }
+        .points { font-size: 3.5rem; font-weight: bold; color: #00ffcc; }
+        .games { font-size: 1.1rem; color: #aaa; margin-top: 5px; }
+        button { padding: 15px 20px; font-size: 1.1rem; margin-top: 25px; cursor: pointer; border-radius: 8px; border: none; background: #00ffcc; color: #121212; font-weight: bold; width: 100%; max-width: 300px; }
+        .status { margin-top: 15px; font-size: 0.9rem; color: #00ffcc; }
     </style>
 </head>
 <body>
 
-    <h2>🎾 Placar de Tênis (Modo W69+)</h2>
-    <p>Use o Player de Música do relógio para controlar!</p>
+    <h2>🎾 Placar de Tênis - W69+</h2>
     
     <div class="score-board">
         <div class="player-box">
             <h3>Você (⏭️)</h3>
             <div class="points" id="p1-score">0</div>
-            <div class="games" id="p1-games">Games: 0 | Sets: 0</div>
+            <div class="games" id="p1-games">Games: 0</div>
         </div>
         <div class="player-box">
             <h3>Adversário (⏮️)</h3>
             <div class="points" id="p2-score">0</div>
-            <div class="games" id="p2-games">Games: 0 | Sets: 0</div>
+            <div class="games" id="p2-games">Games: 0</div>
         </div>
     </div>
 
-    <button onclick="iniciarSessaoMedia()">Conectar Controle do Relógio</button>
+    <button onclick="iniciarConexao()">ATIVAR CONTROLE DO RELÓGIO</button>
+    <div class="status" id="status-msg">Toque para sequestrar o player de mídia.</div>
 
     <script>
-        // Estado do Jogo
-        let scoreState = { p1Pts: 0, p2Pts: 0, p1Games: 0, p2Games: 0, p1Sets: 0, p2Sets: 0 };
+        let scoreState = { p1Pts: 0, p2Pts: 0, p1Games: 0, p2Games: 0 };
         const scoreLabels = ["0", "15", "30", "40"];
 
-        // Função de Síntese de Voz (Fala o placar no celular)
         function falar(texto) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Para fala anterior
+                window.speechSynthesis.cancel();
                 let msg = new SpeechSynthesisUtterance(texto);
                 msg.lang = 'pt-BR';
                 window.speechSynthesis.speak(msg);
             }
         }
 
-        // Lógica simplificada de pontuação
         function pontoVoce() {
-            if (scoreState.p1Pts < 3) scoreState.p1Pts++;
-            else {
+            if (scoreState.p1Pts < 3) {
+                scoreState.p1Pts++;
+            } else {
                 scoreState.p1Pts = 0; scoreState.p2Pts = 0;
                 scoreState.p1Games++;
                 falar("Game seu!");
@@ -63,8 +62,9 @@
         }
 
         function pontoAdversario() {
-            if (scoreState.p2Pts < 3) scoreState.p2Pts++;
-            else {
+            if (scoreState.p2Pts < 3) {
+                scoreState.p2Pts++;
+            } else {
                 scoreState.p1Pts = 0; scoreState.p2Pts = 0;
                 scoreState.p2Games++;
                 falar("Game do adversário!");
@@ -84,32 +84,40 @@
         function atualizarTela() {
             document.getElementById('p1-score').innerText = scoreLabels[scoreState.p1Pts];
             document.getElementById('p2-score').innerText = scoreLabels[scoreState.p2Pts];
-            document.getElementById('p1-games').innerText = `Games: ${scoreState.p1Games} | Sets: ${scoreState.p1Sets}`;
-            document.getElementById('p2-games').innerText = `Games: ${scoreState.p2Games} | Sets: ${scoreState.p2Sets}`;
+            document.getElementById('p1-games').innerText = `Games: ${scoreState.p1Games}`;
+            document.getElementById('p2-games').innerText = `Games: ${scoreState.p2Games}`;
         }
 
-        // CAPTURA DOS BOTÕES DE MÍDIA DO RELÓGIO (MediaSession API)
-        function iniciarSessaoMedia() {
-            if ('mediaSession' in navigator) {
-                // Cria um áudio embutido "mudo" em loop para manter a sessão de mídia ativa no celular
-                const dummyAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-                dummyAudio.loop = true;
-                dummyAudio.play();
+        function iniciarConexao() {
+            // Cria um contexto de áudio real do navegador para forçar o Android a focar nesta aba
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            // Cria um oscilador inaudível de baixo ganho apenas para manter o stream de áudio ativo
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.value = 0.001; // Quase mudo, mas tecnicamente som gerado
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
 
+            if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: 'Placar de Tênis',
-                    artist: 'Serviço de Pontuação',
+                    title: 'Placar de Tênis Ativo',
+                    artist: 'Você (Próx) vs Adversário (Ant)',
                     album: 'W69+ Controller'
                 });
 
-                // Mapeia os botões do W69+
                 navigator.mediaSession.setActionHandler('nexttrack', () => pontoVoce());
                 navigator.mediaSession.setActionHandler('previoustrack', () => pontoAdversario());
                 navigator.mediaSession.setActionHandler('pause', () => falarPlacar());
+                navigator.mediaSession.setActionHandler('play', () => falarPlacar());
 
-                falar("Controle conectado. Bom jogo!");
+                document.getElementById('status-msg').innerText = "🟢 Conectado e com foco de áudio sequestrado!";
+                falar("Controle ativado com sucesso.");
             } else {
-                alert("Navegador não suporta MediaSession API");
+                document.getElementById('status-msg').innerText = "Erro: MediaSession não suportada.";
             }
         }
     </script>
